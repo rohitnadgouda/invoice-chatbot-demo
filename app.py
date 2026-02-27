@@ -59,9 +59,9 @@ if "messages" not in st.session_state:
 def get_chatbot_model():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # LEARNING: List models to identify valid authorized string
+        # Query authorized models to find valid string
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        target_model = next((m for m in available_models if '1.5-flash' in m), 'gemini-1.5-flash')
+        target_model = next((m for m in available_models if '1.5-flash' in m), 'models/gemini-1.5-flash-latest')
 
         return genai.GenerativeModel(
             model_name=target_model, 
@@ -69,13 +69,14 @@ def get_chatbot_model():
                 f"""You are an intelligent, cost-optimized Flipkart Support Assistant. User: Rohit. 
                 Context Data: {ORDER_DATA}. 
                 STRATEGIC ESCALATION & LANGUAGE RULES:
-                1. If status is 'Shipped', explain that the invoice is not ready yet. Use variations like: 
-                'The system is not designed to generate the invoice at this stage' or 'The official invoice will be available once the order reaches you.'
-                DO NOT use technical jargon about hard-coding or physical file generation.
+                1. If status is 'Shipped', explain that the invoice is not ready yet. 
+                Use variations like: 'The system is not designed to generate the invoice at this stage' 
+                or 'The official invoice will be available once the order reaches you.'
                 2. NO EARLY NUDGE: Do NOT offer the WhatsApp reminder in the 1st or 2nd response. 
-                3. PROBE FOR URGENCY: From the 3rd iteration onwards, or if the customer shows desperation, 
+                3. PROBE FOR URGENCY: On the 3rd iteration, or if the customer shows desperation, 
                 ask an open-ended question to understand their urgency. 
-                4. WHATSAPP TRIGGER: Only use the WhatsApp nudge if the user's response to your probe indicates persistent, non-negotiable need. 
+                4. WHATSAPP TRIGGER: Only use the WhatsApp nudge if the user's response to your probe 
+                indicates persistent, non-negotiable need. 
                 5. ZERO-COST RESOLUTION: Always prefer providing text-based tax values (GST, GT Charges) for claims first. 
                 6. NEVER use placeholders. Reject technician claims for shampoo politely."""
             )
@@ -100,11 +101,12 @@ def render_chat():
 
 render_chat()
 
-# --- 6. CHAT INPUT & ASYNC-STYLE LOGIC ---
+# --- 6. CHAT INPUT & INSTANT UI LOGIC ---
 if prompt := st.chat_input("Write a message..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.rerun()
 
+# Trigger response if the last message is from user
 if st.session_state.messages[-1]["role"] == "user":
     if model:
         try:
@@ -126,4 +128,4 @@ if st.session_state.messages[-1]["role"] == "user":
         except Exception as e:
             st.error(f"⚠️ Technical Error: {str(e)}")
     else:
-        st.error("Bot configuration failed.")
+        st.error("Bot configuration failed. Please check your API key.")
