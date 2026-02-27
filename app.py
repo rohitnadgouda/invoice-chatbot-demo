@@ -110,7 +110,7 @@ for message in st.session_state.messages:
     elif message["role"] == "user":
         st.markdown(f'<div class="user-bubble">{message["content"]}</div>', unsafe_allow_html=True)
     elif message["role"] == "product_card":
-        st.markdown(f'''<div class="product-card"><img src="https://rukminim2.flixcart.com/image/128/128/xif0q/shampoo/g/p/p/-original-imagp6y68hgfhzgt.jpeg" width="50" style="margin-right:15px; border-radius:4px;"><div style="font-size:14px; color:#212121;">{ORDER_DATA["Item"]}</div></div>''', unsafe_allow_html=True)
+        st.markdown(f'''<div class="product-card"><img src="https://bioderma.naosindia.in/cdn/shop/files/1_3690e0e6-b59e-48ea-932f-5f4689734042.jpg" width="50" style="margin-right:15px; border-radius:4px;"><div style="font-size:14px; color:#212121;">{ORDER_DATA["Item"]}</div></div>''', unsafe_allow_html=True)
 
 # --- 6. CHAT INPUT & INSTANT UI LOGIC ---
 if prompt := st.chat_input("Write a message..."):
@@ -129,7 +129,7 @@ if st.session_state.messages[-1]["role"] == "user":
             
             chat = model.start_chat(history=chat_history)
             
-            with st.spinner("Thinking..."):
+            with st.spinner("Typing..."):
                 response = chat.send_message(st.session_state.messages[-1]["content"])
                 ai_response = response.text
                 
