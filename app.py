@@ -30,19 +30,19 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. EXACT MOCK DATA FROM INVOICE ---
+# --- 2. EXACT MOCK DATA FROM INVOICE (OD336636889712015100) ---
 ORDER_DATA = {
     "Item": "BIODERMA Node G Purifying shampoo",
     "Status": "Shipped",
-    "Order_ID": "OD336636889712015100", 
-    "Invoice_Date": "27-01-2026", 
-    "Seller": "NAOS SKIN CARE INDIA PRIVATE LIMITED", 
-    "GSTIN": "29AAECN7906P1ZP", 
-    "Taxable_Value": "₹1,385.60",
-    "SGST": "₹124.70",
-    "CGST": "₹124.70",
-    "GT_Charges": "₹238.00", # Goods Transport Charges
-    "Platform_Fee": "₹7.00",
+    [cite_start]"Order_ID": "OD336636889712015100", # [cite: 5]
+    [cite_start]"Invoice_Date": "27-01-2026", # [cite: 7]
+    [cite_start]"Seller": "NAOS SKIN CARE INDIA PRIVATE LIMITED", # [cite: 2]
+    [cite_start]"GSTIN": "29AAECN7906P1ZP", # [cite: 4]
+    [cite_start]"Taxable_Value": "₹1,385.60", # [cite: 22]
+    [cite_start]"SGST": "₹124.70", # [cite: 22]
+    [cite_start]"CGST": "₹124.70", # [cite: 22]
+    [cite_start]"GT_Charges": "₹238.00", # Goods Transport Charges [cite: 81]
+    [cite_start]"Platform_Fee": "₹7.00", # [cite: 46]
     "Grand_Total": "₹1,880.00" 
 }
 
@@ -54,31 +54,31 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": f"I see that your order for {ORDER_DATA['Item']} is {ORDER_DATA['Status'].lower()}. How can I help you?"}
     ]
 
-# --- 4. GEMINI API CONFIGURATION (COST-OPTIMIZED LOGIC) ---
+# --- 4. GEMINI API CONFIGURATION (DYNAMIC RESOLUTION) ---
 @st.cache_resource
 def get_chatbot_model():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         
-        # Consistent dynamic model resolution to prevent 404
+        # WHAT WORKED: Use list_models() to bypass 404 errors
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         target_model = next((m for m in available_models if '1.5-flash' in m), 'gemini-1.5-flash')
 
         return genai.GenerativeModel(
             model_name=target_model, 
             system_instruction=(
-                "You are an intelligent, cost-aware Flipkart Support Assistant. User: Rohit. "
-                f"Context Data: {ORDER_DATA}. "
-                "CONVERSATION LOGIC: "
-                "1. If status is 'Shipped', explain clearly that the PDF invoice is generated only upon delivery. "
-                "2. COST OPTIMIZATION: Sending a WhatsApp reminder is a high-cost action. DO NOT offer it in the first response or if the customer is calm. "
+                "You are a cost-conscious Flipkart Support Assistant. User: Rohit. "
+                f"Data Context: {ORDER_DATA}. "
+                "LOGIC & ESCALATION RULES: "
+                "1. If status is 'Shipped', clarify that the PDF invoice is finalized upon delivery."
+                "2. COST OPTIMIZATION: Sending a WhatsApp reminder is a high-cost action. DO NOT offer it if the customer is calm or in the first response."
                 "3. WHATSAPP TRIGGER: Only offer the WhatsApp reminder if: "
-                "   a) The customer explicitly asks for it. "
-                "   b) The customer repeats the request for a PDF after being told it's not available. "
-                "   c) The customer displays high anxiety or frustration (e.g., 'I really need it now', 'Why can't I have it?'). "
-                "4. MINIMALIST NUDGING: If they need details for an office claim, provide text values (GST, GT Charges) FIRST as this is zero-cost. "
-                "5. GT Charges = 'Goods Transport Charges'. Platform Fee = ₹7.00. "
-                "6. Reject technician requests for shampoo politely."
+                "   a) Customer explicitly asks for it. "
+                "   b) Customer repeats the PDF request after being denied once. "
+                "   c) Customer displays high anxiety/frustration (e.g., 'need it now', 'office deadline')."
+                "4. MINIMALIST RESOLUTION: Provide text-based tax values (GST, GT Charges) as a zero-cost first resolution for office claims."
+                "5. TERMINOLOGY: GT Charges = 'Goods Transport Charges'. [cite_start]Platform Fee = ₹7.00. [cite: 81, 46]"
+                "6. Hallucination Guard: NEVER use placeholders. Reject technician claims for shampoo politely."
             )
         )
     except:
@@ -104,7 +104,7 @@ if prompt := st.chat_input("Write a message..."):
     
     if model:
         try:
-            # Pass history to ensure the AI detects 'anxiety' or 'repetition'
+            # Passing history ensures the AI detects 'anxiety' or 'repetition' over time
             chat = model.start_chat(history=[
                 {"role": m["role"] if m["role"] != "assistant" else "model", "parts": [m["content"]]} 
                 for m in st.session_state.messages[:-1] if m["role"] != "product_card"
