@@ -54,12 +54,12 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": f"I see that your order for {ORDER_DATA['Item']} is {ORDER_DATA['Status'].lower()}. How can I help you?"}
     ]
 
-# --- 4. GEMINI API CONFIGURATION (STABLE & STRATEGIC) ---
+# --- 4. GEMINI API CONFIGURATION (STABLE & DYNAMIC) ---
 @st.cache_resource
 def get_chatbot_model():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # WHAT WORKED: Discovery logic to prevent 404
+        # LEARNING: List models to identify valid authorized string
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         target_model = next((m for m in available_models if '1.5-flash' in m), 'gemini-1.5-flash')
 
@@ -72,10 +72,10 @@ def get_chatbot_model():
                 "1. If status is 'Shipped', clarify that the PDF invoice is finalized only upon delivery."
                 "2. NO EARLY NUDGE: Do NOT offer the WhatsApp reminder in the 1st or 2nd response."
                 "3. PROBE FOR URGENCY: From the 3rd iteration onwards, or if the customer shows desperation, "
-                "ask an open-ended question to understand their urgency (e.g., 'Could you help me understand if this is for an immediate office claim or a different requirement?')."
-                "4. WHATSAPP TRIGGER: Use the WhatsApp nudge ONLY if the user's response to your probe indicates high persistence or a non-negotiable need."
-                "5. ZERO-COST RESOLUTION: Always prefer providing text-based tax values (GST, GT Charges) for claims as the primary resolution."
-                "6. Hallucination Guard: NEVER use placeholders. Reject technician claims for shampoo politely."
+                "ask an open-ended question to understand their urgency (e.g., 'Could you help me understand if this is for an immediate office claim or another requirement?')."
+                "4. WHATSAPP TRIGGER: Offering a WhatsApp reminder is a cost to company. Use it ONLY if the user's response to your probe indicates high persistence or a non-negotiable need."
+                "5. ZERO-COST RESOLUTION: Always prefer providing text-based tax values (GST, GT Charges) for claims first."
+                "6. NEVER use placeholders. Reject technician claims for shampoo politely."
             )
         )
     except:
@@ -101,7 +101,7 @@ if prompt := st.chat_input("Write a message..."):
     
     if model:
         try:
-            # Pass history to allow the AI to count iterations and detect desperation
+            # Pass history to ensure iteration counting and sentiment detection
             chat = model.start_chat(history=[
                 {"role": m["role"] if m["role"] != "assistant" else "model", "parts": [m["content"]]} 
                 for m in st.session_state.messages[:-1] if m["role"] != "product_card"
