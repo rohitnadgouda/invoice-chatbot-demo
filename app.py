@@ -54,45 +54,30 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": f"I see that your order for {ORDER_DATA['Item']} is {ORDER_DATA['Status'].lower()}. How can I help you?"}
     ]
 
-# --- 4. GEMINI API CONFIGURATION (STABLE AUTO-RESOLVE) ---
+# --- 4. GEMINI API CONFIGURATION (STABLE DYNAMIC RESOLUTION) ---
 @st.cache_resource
 def get_chatbot_model():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        
-        # We fetch the actual models list to avoid 404 string errors
+        # WHAT WORKED: List models to find valid name
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        
-        # Pick the best available model (Flash preferred, then Pro)
-        target_model = None
-        for m_name in available_models:
-            if '1.5-flash' in m_name:
-                target_model = m_name
-                break
-        if not target_model:
-            for m_name in available_models:
-                if 'gemini-pro' in m_name:
-                    target_model = m_name
-                    break
-        
-        if not target_model:
-            return None
+        target_model = next((m for m in available_models if '1.5-flash' in m), 'gemini-1.5-flash')
 
         return genai.GenerativeModel(
             model_name=target_model, 
             system_instruction=(
-                "You are an intelligent, cost-aware Flipkart Support Assistant. User: Rohit. "
+                "You are an intelligent, cost-optimized Flipkart Support Assistant. User: Rohit. "
                 f"Context Data: {ORDER_DATA}. "
-                "STRATEGIC ESCALATION RULES: "
-                "1. If status is 'Shipped', clarify that the PDF is ready only after delivery. "
-                "2. COST OPTIMIZATION: Do NOT offer the WhatsApp reminder in the 1st or 2nd response. "
-                "3. PROBE FOR URGENCY: On the 3rd iteration, or if the customer shows desperation, ask an open-ended "
-                "clarifying question (e.g., 'Is this for an immediate office claim or a tax filing?'). "
-                "4. WHATSAPP TRIGGER: Only use the WhatsApp nudge if the user's response to your probe indicates "
-                "persistent, non-negotiable need. "
-                "5. ZERO-COST RESOLUTION: Always prioritize text-based tax values (GST, GT Charges) for claims first. "
-                "6. TERMINOLOGY: GT Charges = 'Goods Transport Charges'. Platform Fee = ₹7.00. "
-                "7. Reject technician claims for shampoo orders politely. NEVER use placeholders."
+                "STRATEGIC ESCALATION & LANGUAGE RULES: "
+                "1. If status is 'Shipped', explain that the invoice is not ready yet. Use variations like: "
+                "'The system is not designed to generate the invoice at this stage' or 'The official invoice will be available once the order reaches you.' "
+                "Avoid technical details about hard-coding or physical files. "
+                "2. NO EARLY NUDGE: Do NOT offer the WhatsApp reminder in the 1st or 2nd response. "
+                "3. PROBE FOR URGENCY: On the 3rd iteration, or if the customer shows desperation, "
+                "ask an open-ended question to understand their urgency. "
+                "4. WHATSAPP TRIGGER: Only use the WhatsApp nudge if the user's response to your probe indicates persistent, non-negotiable need. "
+                "5. ZERO-COST RESOLUTION: Always prefer providing text-based tax values (GST, GT Charges) for claims first. "
+                "6. NEVER use placeholders. Reject technician claims for shampoo politely."
             )
         )
     except:
@@ -104,21 +89,29 @@ model = get_chatbot_model()
 st.markdown('<div class="main-header">✕ &nbsp; Flipkart Support</div>', unsafe_allow_html=True)
 st.write("##") 
 
-for message in st.session_state.messages:
-    if message["role"] == "assistant":
-        st.markdown(f'<div class="bot-bubble">{message["content"]}</div>', unsafe_allow_html=True)
-    elif message["role"] == "user":
-        st.markdown(f'<div class="user-bubble">{message["content"]}</div>', unsafe_allow_html=True)
-    elif message["role"] == "product_card":
-        st.markdown(f'''<div class="product-card"><img src="https://rukminim2.flixcart.com/image/128/128/xif0q/shampoo/g/p/p/-original-imagp6y68hgfhzgt.jpeg" width="50" style="margin-right:15px; border-radius:4px;"><div style="font-size:14px; color:#212121;">{ORDER_DATA["Item"]}</div></div>''', unsafe_allow_html=True)
+# Function to render chat history
+def render_chat():
+    for message in st.session_state.messages:
+        if message["role"] == "assistant":
+            st.markdown(f'<div class="bot-bubble">{message["content"]}</div>', unsafe_allow_html=True)
+        elif message["role"] == "user":
+            st.markdown(f'<div class="user-bubble">{message["content"]}</div>', unsafe_allow_html=True)
+        elif message["role"] == "product_card":
+            st.markdown(f'''<div class="product-card"><img src="https://rukminim2.flixcart.com/image/128/128/xif0q/shampoo/g/p/p/-original-imagp6y68hgfhzgt.jpeg" width="50" style="margin-right:15px; border-radius:4px;"><div style="font-size:14px; color:#212121;">{ORDER_DATA["Item"]}</div></div>''', unsafe_allow_html=True)
 
-# --- 6. CHAT INPUT & HISTORY-AWARE GENERATION ---
+render_chat()
+
+# --- 6. CHAT INPUT & ASYNC-STYLE LOGIC ---
 if prompt := st.chat_input("Write a message..."):
+    # 1. Immediately add and display user message
     st.session_state.messages.append({"role": "user", "content": prompt})
-    
+    st.rerun()
+
+# Logic to generate response if the last message is from the user
+if st.session_state.messages[-1]["role"] == "user":
     if model:
         try:
-            # We must pass the correct history format to detect turns and desperation
+            # Prepare history
             chat_history = []
             for m in st.session_state.messages[:-1]:
                 if m["role"] == "assistant":
@@ -127,13 +120,14 @@ if prompt := st.chat_input("Write a message..."):
                     chat_history.append({"role": "user", "parts": [m["content"]]})
             
             chat = model.start_chat(history=chat_history)
+            
             with st.spinner("Thinking..."):
-                response = chat.send_message(prompt)
+                response = chat.send_message(st.session_state.messages[-1]["content"])
                 ai_response = response.text
+                
+            st.session_state.messages.append({"role": "assistant", "content": ai_response})
+            st.rerun()
         except Exception as e:
-            ai_response = f"⚠️ **Technical Error:** {str(e)}"
+            st.error(f"⚠️ Technical Error: {str(e)}")
     else:
-        ai_response = "Bot configuration failed. Please check your API key."
-
-    st.session_state.messages.append({"role": "assistant", "content": ai_response})
-    st.rerun()
+        st.error("Bot configuration failed.")
