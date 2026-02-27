@@ -16,12 +16,12 @@ st.markdown("""
     .bot-bubble {
         background-color: #FFFFFF; border-radius: 12px; padding: 12px; color: #212121;
         box-shadow: 0 1px 2px rgba(0,0,0,0.1); margin-bottom: 10px; max-width: 85%;
-        font-family: 'Roboto', sans-serif; font-size: 14px; line-height: 1.4;
+        font-size: 14px; line-height: 1.4;
     }
     .user-bubble {
         background-color: #E3F2FD; border-radius: 12px; padding: 12px; color: #212121;
         margin-left: auto; margin-bottom: 10px; max-width: 85%;
-        font-family: 'Roboto', sans-serif; font-size: 14px; text-align: right;
+        font-size: 14px; text-align: right;
     }
     .product-card {
         background-color: #FFFFFF; border: 1px solid #E0E0E0; border-radius: 12px;
@@ -31,7 +31,6 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- 2. EXACT MOCK DATA FROM INVOICE ---
-# Extracted from OD336636889712015100 [cite: 5]
 ORDER_DATA = {
     "Item": "BIODERMA Node G Purifying shampoo",
     "Status": "Shipped",
@@ -55,39 +54,28 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": f"I see that your order for {ORDER_DATA['Item']} is {ORDER_DATA['Status'].lower()}. How can I help you?"}
     ]
 
-# --- 4. GEMINI API CONFIGURATION (DYNAMIC RESOLUTION) ---
+# --- 4. GEMINI API CONFIGURATION (STABLE & STRATEGIC) ---
 @st.cache_resource
 def get_chatbot_model():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        
-        # WHAT WORKED: List models to find valid name
+        # WHAT WORKED: Discovery logic to prevent 404
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        
-        target_model = 'models/gemini-1.5-flash' # Default
-        for m_name in available_models:
-            if '1.5-flash' in m_name:
-                target_model = m_name
-                break
-            elif 'gemini-pro' in m_name:
-                target_model = m_name
+        target_model = next((m for m in available_models if '1.5-flash' in m), 'gemini-1.5-flash')
 
         return genai.GenerativeModel(
             model_name=target_model, 
             system_instruction=(
-                "You are an intelligent, cost-aware Flipkart Support Assistant. User: Rohit. "
+                "You are an intelligent, cost-optimized Flipkart Support Assistant. User: Rohit. "
                 f"Context Data: {ORDER_DATA}. "
-                "LOGIC & ESCALATION RULES: "
-                "1. If status is 'Shipped', explain that the PDF is finalized only upon delivery."
-                "2. COST OPTIMIZATION: Sending a WhatsApp reminder is a high-cost action. "
-                "   DO NOT offer it in the first response or if the customer is calm."
-                "3. WHATSAPP TRIGGER: Only offer the WhatsApp reminder if: "
-                "   a) Customer explicitly asks for it. "
-                "   b) Customer repeats the PDF request after being denied. "
-                "   c) Customer displays high anxiety (e.g., 'need it now', 'deadline')."
-                "4. ZERO-COST RESOLUTION: Provide text-based tax values (GST, GT Charges) FIRST for claims."
-                "5. GT Charges = 'Goods Transport Charges'. Platform Fee = ₹7.00. [cite: 81, 46]"
-                "6. NEVER use placeholders. Reject technician claims for shampoo orders politely."
+                "STRATEGIC ESCALATION RULES: "
+                "1. If status is 'Shipped', clarify that the PDF invoice is finalized only upon delivery."
+                "2. NO EARLY NUDGE: Do NOT offer the WhatsApp reminder in the 1st or 2nd response."
+                "3. PROBE FOR URGENCY: From the 3rd iteration onwards, or if the customer shows desperation, "
+                "ask an open-ended question to understand their urgency (e.g., 'Could you help me understand if this is for an immediate office claim or a different requirement?')."
+                "4. WHATSAPP TRIGGER: Use the WhatsApp nudge ONLY if the user's response to your probe indicates high persistence or a non-negotiable need."
+                "5. ZERO-COST RESOLUTION: Always prefer providing text-based tax values (GST, GT Charges) for claims as the primary resolution."
+                "6. Hallucination Guard: NEVER use placeholders. Reject technician claims for shampoo politely."
             )
         )
     except:
@@ -113,7 +101,7 @@ if prompt := st.chat_input("Write a message..."):
     
     if model:
         try:
-            # HISTORY AWARENESS: Detect 'anxiety' or 'repetition'
+            # Pass history to allow the AI to count iterations and detect desperation
             chat = model.start_chat(history=[
                 {"role": m["role"] if m["role"] != "assistant" else "model", "parts": [m["content"]]} 
                 for m in st.session_state.messages[:-1] if m["role"] != "product_card"
