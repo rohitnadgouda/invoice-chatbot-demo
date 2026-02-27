@@ -31,6 +31,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- 2. EXACT MOCK DATA FROM INVOICE ---
+# Extracted from OD336636889712015100 [cite: 5]
 ORDER_DATA = {
     "Item": "BIODERMA Node G Purifying shampoo",
     "Status": "Shipped",
@@ -54,31 +55,38 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": f"I see that your order for {ORDER_DATA['Item']} is {ORDER_DATA['Status'].lower()}. How can I help you?"}
     ]
 
-# --- 4. GEMINI API CONFIGURATION (STABLE AUTO-RESOLVE) ---
+# --- 4. GEMINI API CONFIGURATION (DYNAMIC RESOLUTION) ---
 @st.cache_resource
 def get_chatbot_model():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         
-        # WHAT WORKED: Use list_models() to bypass 404 errors
+        # WHAT WORKED: List models to find valid name
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        target_model = next((m for m in available_models if '1.5-flash' in m), 'gemini-1.5-flash')
+        
+        target_model = 'models/gemini-1.5-flash' # Default
+        for m_name in available_models:
+            if '1.5-flash' in m_name:
+                target_model = m_name
+                break
+            elif 'gemini-pro' in m_name:
+                target_model = m_name
 
         return genai.GenerativeModel(
             model_name=target_model, 
             system_instruction=(
                 "You are an intelligent, cost-aware Flipkart Support Assistant. User: Rohit. "
-                f"Data Context: {ORDER_DATA}. "
+                f"Context Data: {ORDER_DATA}. "
                 "LOGIC & ESCALATION RULES: "
-                "1. Status 'Shipped': Explain that the PDF is finalized only upon delivery. "
+                "1. If status is 'Shipped', explain that the PDF is finalized only upon delivery."
                 "2. COST OPTIMIZATION: Sending a WhatsApp reminder is a high-cost action. "
-                "   DO NOT offer it in the first response or if the customer is calm. "
+                "   DO NOT offer it in the first response or if the customer is calm."
                 "3. WHATSAPP TRIGGER: Only offer the WhatsApp reminder if: "
                 "   a) Customer explicitly asks for it. "
                 "   b) Customer repeats the PDF request after being denied. "
-                "   c) Customer displays high anxiety (e.g., 'need it now', 'deadline'). "
-                "4. ZERO-COST RESOLUTION: Provide text-based tax values (GST, GT Charges) FIRST for claims. "
-                "5. GT Charges = 'Goods Transport Charges'. Platform Fee = ₹7.00."
+                "   c) Customer displays high anxiety (e.g., 'need it now', 'deadline')."
+                "4. ZERO-COST RESOLUTION: Provide text-based tax values (GST, GT Charges) FIRST for claims."
+                "5. GT Charges = 'Goods Transport Charges'. Platform Fee = ₹7.00. [cite: 81, 46]"
                 "6. NEVER use placeholders. Reject technician claims for shampoo orders politely."
             )
         )
@@ -105,7 +113,7 @@ if prompt := st.chat_input("Write a message..."):
     
     if model:
         try:
-            # HISTORY AWARENESS: Pass history to detect 'anxiety' or 'repetition'
+            # HISTORY AWARENESS: Detect 'anxiety' or 'repetition'
             chat = model.start_chat(history=[
                 {"role": m["role"] if m["role"] != "assistant" else "model", "parts": [m["content"]]} 
                 for m in st.session_state.messages[:-1] if m["role"] != "product_card"
