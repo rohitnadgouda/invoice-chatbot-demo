@@ -16,11 +16,11 @@ st.markdown("""
     .bot-bubble {
         background-color: #FFFFFF; border-radius: 12px; padding: 12px; color: #212121;
         box-shadow: 0 1px 2px rgba(0,0,0,0.1); margin-bottom: 10px; max-width: 85%;
-        font-size: 14px; line-height: 1.4;
+        font-size: 14px; line-height: 1.4; margin-bottom: 15px;
     }
     .user-bubble {
         background-color: #E3F2FD; border-radius: 12px; padding: 12px; color: #212121;
-        margin-left: auto; margin-bottom: 10px; max-width: 85%;
+        margin-left: auto; margin-bottom: 15px; max-width: 85%;
         font-size: 14px; text-align: right;
     }
     .product-card {
@@ -54,17 +54,27 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": f"I see that your order for {ORDER_DATA['Item']} is {ORDER_DATA['Status'].lower()}. How can I help you?"}
     ]
 
-# --- 4. GEMINI API CONFIGURATION (DYNAMIC RESOLUTION) ---
+# --- 4. GEMINI API CONFIGURATION (STRICT DISCOVERY) ---
 @st.cache_resource
 def get_chatbot_model():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # Query authorized models to find valid string
-        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        target_model = next((m for m in available_models if '1.5-flash' in m), 'models/gemini-1.5-flash-latest')
+        
+        # LEARNING: Explicitly list and find the exact name authorized for this key
+        available_models = list(genai.list_models())
+        
+        target_model_name = None
+        for m in available_models:
+            if "generateContent" in m.supported_generation_methods:
+                if "flash" in m.name.lower():
+                    target_model_name = m.name
+                    break
+        
+        if not target_model_name:
+            target_model_name = next(m.name for m in available_models if "generateContent" in m.supported_generation_methods)
 
         return genai.GenerativeModel(
-            model_name=target_model, 
+            model_name=target_model_name, 
             system_instruction=(
                 f"""You are an intelligent, cost-optimized Flipkart Support Assistant. User: Rohit. 
                 Context Data: {ORDER_DATA}. 
@@ -81,7 +91,8 @@ def get_chatbot_model():
                 6. NEVER use placeholders. Reject technician claims for shampoo politely."""
             )
         )
-    except:
+    except Exception as e:
+        st.error(f"Failed to initialize model: {e}")
         return None
 
 model = get_chatbot_model()
@@ -90,23 +101,19 @@ model = get_chatbot_model()
 st.markdown('<div class="main-header">✕ &nbsp; Flipkart Support</div>', unsafe_allow_html=True)
 st.write("##") 
 
-def render_chat():
-    for message in st.session_state.messages:
-        if message["role"] == "assistant":
-            st.markdown(f'<div class="bot-bubble">{message["content"]}</div>', unsafe_allow_html=True)
-        elif message["role"] == "user":
-            st.markdown(f'<div class="user-bubble">{message["content"]}</div>', unsafe_allow_html=True)
-        elif message["role"] == "product_card":
-            st.markdown(f'''<div class="product-card"><img src="https://rukminim2.flixcart.com/image/128/128/xif0q/shampoo/g/p/p/-original-imagp6y68hgfhzgt.jpeg" width="50" style="margin-right:15px; border-radius:4px;"><div style="font-size:14px; color:#212121;">{ORDER_DATA["Item"]}</div></div>''', unsafe_allow_html=True)
-
-render_chat()
+for message in st.session_state.messages:
+    if message["role"] == "assistant":
+        st.markdown(f'<div class="bot-bubble">{message["content"]}</div>', unsafe_allow_html=True)
+    elif message["role"] == "user":
+        st.markdown(f'<div class="user-bubble">{message["content"]}</div>', unsafe_allow_html=True)
+    elif message["role"] == "product_card":
+        st.markdown(f'''<div class="product-card"><img src="https://rukminim2.flixcart.com/image/128/128/xif0q/shampoo/g/p/p/-original-imagp6y68hgfhzgt.jpeg" width="50" style="margin-right:15px; border-radius:4px;"><div style="font-size:14px; color:#212121;">{ORDER_DATA["Item"]}</div></div>''', unsafe_allow_html=True)
 
 # --- 6. CHAT INPUT & INSTANT UI LOGIC ---
 if prompt := st.chat_input("Write a message..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.rerun()
 
-# Trigger response if the last message is from user
 if st.session_state.messages[-1]["role"] == "user":
     if model:
         try:
@@ -128,4 +135,4 @@ if st.session_state.messages[-1]["role"] == "user":
         except Exception as e:
             st.error(f"⚠️ Technical Error: {str(e)}")
     else:
-        st.error("Bot configuration failed. Please check your API key.")
+        st.warning("Model not available. Please check configuration.")
