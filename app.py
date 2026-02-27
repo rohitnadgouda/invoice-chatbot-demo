@@ -54,12 +54,12 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": f"I see that your order for {ORDER_DATA['Item']} is {ORDER_DATA['Status'].lower()}. How can I help you?"}
     ]
 
-# --- 4. GEMINI API CONFIGURATION (STABLE DYNAMIC RESOLUTION) ---
+# --- 4. GEMINI API CONFIGURATION (DYNAMIC RESOLUTION) ---
 @st.cache_resource
 def get_chatbot_model():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # LEARNING: List models to find valid authorized string
+        # LEARNING: List models to identify valid authorized string
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         target_model = next((m for m in available_models if '1.5-flash' in m), 'gemini-1.5-flash')
 
@@ -72,11 +72,11 @@ def get_chatbot_model():
                 1. If status is 'Shipped', explain that the invoice is not ready yet. Use variations like: 
                 'The system is not designed to generate the invoice at this stage' or 'The official invoice will be available once the order reaches you.'
                 DO NOT use technical jargon about hard-coding or physical file generation.
-                2. NO EARLY NUDGE: Do NOT offer the WhatsApp reminder in the 1st or 2nd response.
+                2. NO EARLY NUDGE: Do NOT offer the WhatsApp reminder in the 1st or 2nd response. 
                 3. PROBE FOR URGENCY: From the 3rd iteration onwards, or if the customer shows desperation, 
-                ask an open-ended question to understand their urgency.
-                4. WHATSAPP TRIGGER: Only use the WhatsApp nudge if the user's response to your probe indicates persistent, non-negotiable need.
-                5. ZERO-COST RESOLUTION: Always prefer providing text-based tax values (GST, GT Charges) for claims first.
+                ask an open-ended question to understand their urgency. 
+                4. WHATSAPP TRIGGER: Only use the WhatsApp nudge if the user's response to your probe indicates persistent, non-negotiable need. 
+                5. ZERO-COST RESOLUTION: Always prefer providing text-based tax values (GST, GT Charges) for claims first. 
                 6. NEVER use placeholders. Reject technician claims for shampoo politely."""
             )
         )
@@ -102,15 +102,12 @@ render_chat()
 
 # --- 6. CHAT INPUT & ASYNC-STYLE LOGIC ---
 if prompt := st.chat_input("Write a message..."):
-    # Immediately add and display user message
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.rerun()
 
-# Logic to generate response if the last message is from the user
 if st.session_state.messages[-1]["role"] == "user":
     if model:
         try:
-            # Map history for history-aware conversation
             chat_history = []
             for m in st.session_state.messages[:-1]:
                 if m["role"] == "assistant":
