@@ -31,6 +31,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- 2. EXACT MOCK DATA FROM INVOICE ---
+# Accurate terminology and values from OD336636889712015100
 ORDER_DATA = {
     "Item": "BIODERMA Node G Purifying shampoo",
     "Status": "Shipped",
@@ -59,10 +60,10 @@ if "messages" not in st.session_state:
 def get_chatbot_model():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        # Use discovery logic to identify valid authorized string
+        # LEARNING: Dynamic discovery avoids hard-coded 404s
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         
-        # Priority fallback logic
+        # Priority fallback logic to ensure a valid model is assigned
         target_model = next((m for m in available_models if '1.5-flash' in m), 'gemini-1.5-flash')
 
         return genai.GenerativeModel(
@@ -71,13 +72,14 @@ def get_chatbot_model():
                 "You are an intelligent, cost-optimized Flipkart Support Assistant. User: Rohit. "
                 f"Context Data: {ORDER_DATA}. "
                 "STRATEGIC ESCALATION RULES: "
-                "1. If status is 'Shipped', clarify that the PDF invoice is finalized only upon delivery."
-                "2. NO EARLY NUDGE: Do NOT offer the WhatsApp reminder in the 1st or 2nd response to optimize costs."
-                "3. PROBE FOR URGENCY: On the 3rd iteration, or if the customer shows desperation, "
-                "ask an open-ended question to understand urgency (e.g., 'Could you help me understand if this is for an immediate office claim or a tax filing?')."
-                "4. WHATSAPP TRIGGER: Only use the WhatsApp nudge if the user's response to your probe indicates high persistence or non-negotiable need."
-                "5. ZERO-COST RESOLUTION: Always prefer providing text-based tax values (GST, GT Charges) for claims first."
-                "6. NEVER use placeholders. Reject technician claims for shampoo politely."
+                "1. Shipped Status: Explain that the PDF invoice is finalized only upon delivery."
+                "2. Cost Optimization: Sending a WhatsApp reminder is a high-cost action. DO NOT offer it in the first or second response."
+                "3. Urgency Probe: From the 3rd turn onwards, or if the customer shows desperation, "
+                "ask an open-ended clarifying question to understand their urgency (e.g., 'Is this for an immediate office claim or a tax filing today?')."
+                "4. WhatsApp Trigger: Only use the WhatsApp nudge if the user's response to your probe indicates persistent, non-negotiable need."
+                "5. Zero-Cost Resolution: Always prioritize text-based tax values (GST, GT Charges) for claims as the first solution."
+                "6. Exact Terminology: GT Charges = 'Goods Transport Charges'. Platform Fee = ₹7.00."
+                "7. Reject technician installation for shampoo orders politely. NEVER use placeholders."
             )
         )
     except:
@@ -103,7 +105,7 @@ if prompt := st.chat_input("Write a message..."):
     
     if model:
         try:
-            # Pass history to ensure iteration counting and urgency probing
+            # Pass history to allow the AI to count turns and detect desperation/anxiety
             chat = model.start_chat(history=[
                 {"role": m["role"] if m["role"] != "assistant" else "model", "parts": [m["content"]]} 
                 for m in st.session_state.messages[:-1] if m["role"] != "product_card"
