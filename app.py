@@ -30,19 +30,19 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. EXACT MOCK DATA FROM INVOICE (OD336636889712015100) ---
+# --- 2. EXACT MOCK DATA FROM INVOICE ---
 ORDER_DATA = {
     "Item": "BIODERMA Node G Purifying shampoo",
     "Status": "Shipped",
-    [cite_start]"Order_ID": "OD336636889712015100", # [cite: 5]
-    [cite_start]"Invoice_Date": "27-01-2026", # [cite: 7]
-    [cite_start]"Seller": "NAOS SKIN CARE INDIA PRIVATE LIMITED", # [cite: 2]
-    [cite_start]"GSTIN": "29AAECN7906P1ZP", # [cite: 4]
-    [cite_start]"Taxable_Value": "₹1,385.60", # [cite: 22]
-    [cite_start]"SGST": "₹124.70", # [cite: 22]
-    [cite_start]"CGST": "₹124.70", # [cite: 22]
-    [cite_start]"GT_Charges": "₹238.00", # Goods Transport Charges [cite: 81]
-    [cite_start]"Platform_Fee": "₹7.00", # [cite: 46]
+    "Order_ID": "OD336636889712015100", 
+    "Invoice_Date": "27-01-2026", 
+    "Seller": "NAOS SKIN CARE INDIA PRIVATE LIMITED", 
+    "GSTIN": "29AAECN7906P1ZP", 
+    "Taxable_Value": "₹1,385.60", 
+    "SGST": "₹124.70", 
+    "CGST": "₹124.70", 
+    "GT_Charges": "₹238.00", 
+    "Platform_Fee": "₹7.00", 
     "Grand_Total": "₹1,880.00" 
 }
 
@@ -54,7 +54,7 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": f"I see that your order for {ORDER_DATA['Item']} is {ORDER_DATA['Status'].lower()}. How can I help you?"}
     ]
 
-# --- 4. GEMINI API CONFIGURATION (DYNAMIC RESOLUTION) ---
+# --- 4. GEMINI API CONFIGURATION (STABLE AUTO-RESOLVE) ---
 @st.cache_resource
 def get_chatbot_model():
     try:
@@ -67,18 +67,19 @@ def get_chatbot_model():
         return genai.GenerativeModel(
             model_name=target_model, 
             system_instruction=(
-                "You are a cost-conscious Flipkart Support Assistant. User: Rohit. "
+                "You are an intelligent, cost-aware Flipkart Support Assistant. User: Rohit. "
                 f"Data Context: {ORDER_DATA}. "
                 "LOGIC & ESCALATION RULES: "
-                "1. If status is 'Shipped', clarify that the PDF invoice is finalized upon delivery."
-                "2. COST OPTIMIZATION: Sending a WhatsApp reminder is a high-cost action. DO NOT offer it if the customer is calm or in the first response."
+                "1. Status 'Shipped': Explain that the PDF is finalized only upon delivery. "
+                "2. COST OPTIMIZATION: Sending a WhatsApp reminder is a high-cost action. "
+                "   DO NOT offer it in the first response or if the customer is calm. "
                 "3. WHATSAPP TRIGGER: Only offer the WhatsApp reminder if: "
                 "   a) Customer explicitly asks for it. "
-                "   b) Customer repeats the PDF request after being denied once. "
-                "   c) Customer displays high anxiety/frustration (e.g., 'need it now', 'office deadline')."
-                "4. MINIMALIST RESOLUTION: Provide text-based tax values (GST, GT Charges) as a zero-cost first resolution for office claims."
-                "5. TERMINOLOGY: GT Charges = 'Goods Transport Charges'. [cite_start]Platform Fee = ₹7.00. [cite: 81, 46]"
-                "6. Hallucination Guard: NEVER use placeholders. Reject technician claims for shampoo politely."
+                "   b) Customer repeats the PDF request after being denied. "
+                "   c) Customer displays high anxiety (e.g., 'need it now', 'deadline'). "
+                "4. ZERO-COST RESOLUTION: Provide text-based tax values (GST, GT Charges) FIRST for claims. "
+                "5. GT Charges = 'Goods Transport Charges'. Platform Fee = ₹7.00."
+                "6. NEVER use placeholders. Reject technician claims for shampoo orders politely."
             )
         )
     except:
@@ -104,7 +105,7 @@ if prompt := st.chat_input("Write a message..."):
     
     if model:
         try:
-            # Passing history ensures the AI detects 'anxiety' or 'repetition' over time
+            # HISTORY AWARENESS: Pass history to detect 'anxiety' or 'repetition'
             chat = model.start_chat(history=[
                 {"role": m["role"] if m["role"] != "assistant" else "model", "parts": [m["content"]]} 
                 for m in st.session_state.messages[:-1] if m["role"] != "product_card"
