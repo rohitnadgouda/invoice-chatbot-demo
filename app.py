@@ -92,7 +92,7 @@ def get_chatbot_model():
                 indicates persistent, non-negotiable need. 
                 5. ZERO-COST RESOLUTION: Always prefer providing text-based tax values (GST, GT Charges) for claims first. 
                 6. NEVER use placeholders. Reject technician claims for shampoo politely.
-                7. CALL ME BACK REQUESTS: Politely decline to connect to customer support agents.
+                7. CALL ME BACK REQUESTS: Politely decline to handover the chat to customer support agents.
                 8. NEVER suggest whatsapp reminder for call me back requests."""
             )
         )
