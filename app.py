@@ -91,7 +91,9 @@ def get_chatbot_model():
                 4. WHATSAPP TRIGGER: Only use the WhatsApp nudge if the user's response to your probe 
                 indicates persistent, non-negotiable need. 
                 5. ZERO-COST RESOLUTION: Always prefer providing text-based tax values (GST, GT Charges) for claims first. 
-                6. NEVER use placeholders. Reject technician claims for shampoo politely."""
+                6. NEVER use placeholders. Reject technician claims for shampoo politely.
+                7. CALL ME BACK REQUESTS: Politely decline to connect to customer support agents.
+                8. NEVER suggest whatsapp reminder for call me back requests."""
             )
         )
     except Exception as e:
